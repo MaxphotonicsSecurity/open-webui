@@ -27,6 +27,13 @@ services:
       - host.docker.internal:host-gateway
     restart: unless-stopped
 
+networks:
+  default:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: ${OPEN_WEBUI_SUBNET:-192.168.30.0/24}
+
 volumes:
   ollama: {}
   open-webui: {}

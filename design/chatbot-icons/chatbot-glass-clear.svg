@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 24 24" fill="none">
+  <title>Chatbot glass icon — Clear</title>
+  <metadata>Derived from Tabler Icons message-chatbot, licensed under MIT.</metadata>
+  <defs>
+    <linearGradient id="clear-fill" x1="6" y1="4" x2="18" y2="20" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FFFFFF" stop-opacity="0.88"/>
+      <stop offset="0.55" stop-color="#F8FAFC" stop-opacity="0.62"/>
+      <stop offset="1" stop-color="#DBEAFE" stop-opacity="0.54"/>
+    </linearGradient>
+    <linearGradient id="clear-rim" x1="4" y1="5" x2="20" y2="19" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#CBD5E1"/>
+      <stop offset="0.5" stop-color="#94A3B8"/>
+      <stop offset="1" stop-color="#60A5FA"/>
+    </linearGradient>
+    <filter id="clear-shadow" x="-30%" y="-30%" width="160%" height="170%">
+      <feDropShadow dx="0" dy="0.6" stdDeviation="0.75" flood-color="#64748B" flood-opacity="0.14"/>
+    </filter>
+  </defs>
+  <path d="M18 4C19.657 4 21 5.343 21 7v8c0 1.657-1.343 3-3 3h-5l-5 3v-3H6c-1.657 0-3-1.343-3-3V7c0-1.657 1.343-3 3-3h12Z" fill="url(#clear-fill)" stroke="url(#clear-rim)" stroke-width="1.15" stroke-linejoin="round" filter="url(#clear-shadow)"/>
+  <path d="M5.3 7.05c.35-.98 1.15-1.56 2.34-1.7h7.65" stroke="#FFFFFF" stroke-opacity="0.88" stroke-width="0.7" stroke-linecap="round"/>
+  <path d="M8.1 19.55 13 16.65h5c.92 0 1.67-.45 2.14-1.12" stroke="#BFDBFE" stroke-opacity="0.55" stroke-width="0.45" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="9.5" cy="9.2" r="0.65" fill="#475569"/>
+  <circle cx="14.5" cy="9.2" r="0.65" fill="#3B82F6"/>
+  <path d="M9.4 13.05c1.45 1.52 3.75 1.52 5.2 0" stroke="#334155" stroke-width="1.05" stroke-linecap="round"/>
+</svg>

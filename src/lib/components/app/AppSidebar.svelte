@@ -33,8 +33,8 @@
 				Do not alter, remove, obscure, or replace it except as LICENSE permits:
 				https://docs.openwebui.com/license. -->
 				<img
-					src="{WEBUI_BASE_URL}/static/splash.png"
-					class="size-11 dark:invert p-0.5"
+					src="{WEBUI_BASE_URL}/static/favicon.svg?v=max-chatbot-2"
+					class="size-11 object-contain p-0.5"
 					alt="logo"
 					draggable="false"
 				/>
@@ -61,8 +61,8 @@
 			Do not alter, remove, obscure, or replace it except as LICENSE permits:
 			https://docs.openwebui.com/license. -->
 			<img
-				src="{WEBUI_BASE_URL}/static/favicon.png"
-				class="size-10 {selected === '' ? 'rounded-2xl' : 'rounded-full'}"
+				src="{WEBUI_BASE_URL}/static/favicon.svg?v=max-chatbot-2"
+				class="size-10 object-contain"
 				alt="logo"
 				draggable="false"
 			/>

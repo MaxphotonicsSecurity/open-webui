@@ -10,7 +10,6 @@
 
 	import Modal from '../common/Modal.svelte';
 	import Account from './Settings/Account.svelte';
-	import About from './Settings/About.svelte';
 	import General from './Settings/General.svelte';
 	import Interface from './Settings/Interface.svelte';
 	import Notifications from './Settings/Notifications.svelte';
@@ -28,7 +27,6 @@
 	import Link from '../icons/Link.svelte';
 	import UserCircle from '../icons/UserCircle.svelte';
 	import SoundHigh from '../icons/SoundHigh.svelte';
-	import InfoCircle from '../icons/InfoCircle.svelte';
 	import WrenchAlt from '../icons/WrenchAlt.svelte';
 	import Face from '../icons/Face.svelte';
 	import AppNotification from '../icons/AppNotification.svelte';
@@ -146,8 +144,7 @@
 		data_controls: 'Data',
 		usage: 'Data',
 		archived_chats: 'Data',
-		account: 'Profile',
-		about: 'Profile'
+		account: 'Profile'
 	};
 	const adminSettingGroups: Record<string, string> = {
 		'admin:general': 'System',
@@ -325,8 +322,6 @@
 				'stylizedpdfexport',
 				'title autogeneration',
 				'titleautogeneration',
-				'toast notifications for new updates',
-				'toastnotificationsfornewupdates',
 				'upload background',
 				'uploadbackground',
 				'user interface',
@@ -338,8 +333,6 @@
 				'voicecontrol',
 				'widescreen mode',
 				'widescreenmode',
-				'whatsnew',
-				'whats new',
 				'websearchinchat',
 				'web search in chat'
 			]
@@ -625,54 +618,6 @@
 				'webhook url',
 				'webhookurl'
 			]
-		},
-		{
-			id: 'about',
-			title: 'About',
-			keywords: [
-				'about app',
-				'about me',
-				'about open webui',
-				'about page',
-				'about us',
-				'aboutapp',
-				'aboutme',
-				'aboutopenwebui',
-				'aboutpage',
-				'aboutus',
-				'check for updates',
-				'checkforupdates',
-				'contact',
-				'copyright',
-				'details',
-				'discord',
-				'documentation',
-				'github',
-				'help',
-				'information',
-				'license',
-				'redistributions',
-				'release',
-				'see whats new',
-				'seewhatsnew',
-				'settings',
-				'software info',
-				'softwareinfo',
-				'support',
-				'terms and conditions',
-				'terms of use',
-				'termsandconditions',
-				'termsofuse',
-				'timothy jae ryang baek',
-				'timothy j baek',
-				'timothyjaeryangbaek',
-				'timothyjbaek',
-				'twitter',
-				'update info',
-				'updateinfo',
-				'version info',
-				'versioninfo'
-			]
 		}
 	];
 
@@ -907,7 +852,8 @@
 		tabElement?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'start' });
 	};
 
-	$: if ($user?.role !== 'admin' && isAdminTab(selectedTab)) {
+	// Old bookmarks must land on a visible panel after About is removed.
+	$: if (selectedTab === 'about' || ($user?.role !== 'admin' && isAdminTab(selectedTab))) {
 		selectedTab = 'general';
 	}
 
@@ -1141,19 +1087,6 @@
 							<UserCircle className="size-3.5" strokeWidth="2" />
 							<span>{$i18n.t('Account')}</span>
 						</button>
-					{:else if tabId === 'about'}
-						<button
-							role="tab"
-							aria-controls="tab-about"
-							aria-selected={selectedTab === 'about'}
-							class={tabButtonClass(selectedTab === 'about')}
-							on:click={() => {
-								selectedTab = 'about';
-							}}
-						>
-							<InfoCircle className="size-3.5" strokeWidth="2" />
-							<span>{$i18n.t('About')}</span>
-						</button>
 					{/if}
 				{/each}
 			{/if}
@@ -1261,8 +1194,6 @@
 						toast.success($i18n.t('Settings saved successfully!'));
 					}}
 				/>
-			{:else if selectedTab === 'about'}
-				<About />
 			{:else if selectedTab === 'admin:general'}
 				<AdminGeneral saveHandler={adminConfigSaveHandler} />
 			{:else if selectedTab === 'admin:authentication'}

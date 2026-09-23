@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 24 24" fill="none">
+  <title>Chatbot glass icon — Mint</title>
+  <metadata>Derived from Tabler Icons message-chatbot, licensed under MIT.</metadata>
+  <defs>
+    <radialGradient id="mint-fill" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(7 5.5) rotate(48) scale(19 18)">
+      <stop stop-color="#FFFFFF" stop-opacity="0.96"/>
+      <stop offset="0.55" stop-color="#CCFBF1" stop-opacity="0.76"/>
+      <stop offset="1" stop-color="#A7F3D0" stop-opacity="0.64"/>
+    </radialGradient>
+    <linearGradient id="mint-rim" x1="3" y1="4" x2="20" y2="19" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#5EEAD4"/>
+      <stop offset="0.58" stop-color="#2DD4BF"/>
+      <stop offset="1" stop-color="#22D3EE"/>
+    </linearGradient>
+    <filter id="mint-shadow" x="-30%" y="-30%" width="160%" height="170%">
+      <feDropShadow dx="0" dy="0.65" stdDeviation="0.8" flood-color="#14B8A6" flood-opacity="0.18"/>
+    </filter>
+  </defs>
+  <path d="M18 4C19.657 4 21 5.343 21 7v8c0 1.657-1.343 3-3 3h-5l-5 3v-3H6c-1.657 0-3-1.343-3-3V7c0-1.657 1.343-3 3-3h12Z" fill="url(#mint-fill)" stroke="url(#mint-rim)" stroke-width="1.2" stroke-linejoin="round" filter="url(#mint-shadow)"/>
+  <path d="M5.15 7.2c.3-1.02 1.15-1.68 2.42-1.82h6.75" stroke="#FFFFFF" stroke-opacity="0.82" stroke-width="0.72" stroke-linecap="round"/>
+  <path d="M7.3 17.1H6.2c-1.18 0-2.15-.95-2.15-2.15" stroke="#ECFEFF" stroke-opacity="0.70" stroke-width="0.45" stroke-linecap="round"/>
+  <circle cx="9.5" cy="9.2" r="0.68" fill="#0F766E"/>
+  <circle cx="14.5" cy="9.2" r="0.68" fill="#0891B2"/>
+  <path d="M9.35 13.05c1.48 1.58 3.82 1.58 5.3 0" stroke="#0F766E" stroke-width="1.1" stroke-linecap="round"/>
+</svg>

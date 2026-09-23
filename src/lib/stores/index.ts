@@ -132,7 +132,6 @@ export type SettingsModalRequest = {
 export const showSidebar = writable(false);
 export const showSearch = writable(false);
 export const showSettings: Writable<boolean | string | SettingsModalRequest> = writable(false);
-export const showChangelog = writable(false);
 
 export const showControls = writable(false);
 export const showEmbeds = writable(false);
@@ -332,12 +331,19 @@ type Config = {
 	default_models: string;
 	default_pinned_models?: string | null;
 	default_prompt_suggestions: PromptSuggestion[];
+	onboarding?: boolean;
+	metadata?: {
+		auth_logo_position?: string;
+		login_footer?: string;
+	};
 	features: {
 		auth: boolean;
 		auth_trusted_header: boolean;
 		enable_api_keys: boolean;
 		enable_signup: boolean;
 		enable_login_form: boolean;
+		enable_ldap?: boolean;
+		enable_signup_password_confirmation?: boolean;
 		enable_web_search?: boolean;
 		enable_web_search_confirmation?: boolean;
 		web_search_confirmation_content?: string;

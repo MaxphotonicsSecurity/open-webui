@@ -1,6 +1,9 @@
 <script lang="ts">
-	const i18n = getContext('i18n');
 	import { getContext } from 'svelte';
+	import type { Writable } from 'svelte/store';
+	import type { i18n as I18n } from 'i18next';
+	import type { HTMLInputAttributes } from 'svelte/elements';
+	const i18n = getContext<Writable<I18n>>('i18n');
 	import { v4 as uuidv4 } from 'uuid';
 	export let id = `password-input-${uuidv4()}`;
 	export let value: string = '';
@@ -13,8 +16,10 @@
 	export let inputClassName = '';
 	export let showButtonClassName = '';
 	export let screenReader = true;
-	export let autocomplete = 'off';
+	export let autocomplete: HTMLInputAttributes['autocomplete'] = 'off';
 	export let name: string | undefined = undefined;
+	export let ariaInvalid = false;
+	export let ariaDescribedby: string | undefined = undefined;
 	let className = '';
 	export { className as class };
 
@@ -51,12 +56,16 @@
 		required={required && !readOnly}
 		disabled={readOnly}
 		{autocomplete}
+		aria-invalid={ariaInvalid}
+		aria-describedby={ariaDescribedby}
 	/>
 	<button
 		class={buttonClass}
 		type="button"
 		aria-pressed={show}
-		aria-label={$i18n.t('Make password visible in the user interface')}
+		aria-label={show
+			? $i18n.t('Hide password')
+			: $i18n.t('Make password visible in the user interface')}
 		on:click={(e) => {
 			e.preventDefault();
 			show = !show;

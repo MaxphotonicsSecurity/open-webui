@@ -7,6 +7,9 @@ node_modules
 /package
 .env
 .env.*
+# Exclude per-environment deployment secrets from every Docker build context.
+**/.env
+**/.env.*
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
 __pycache__
@@ -18,3 +21,5 @@ uploads
 **/*.db
 _test
 backend/data/*
+# Local copy is being rewritten as non-text by the host; Docker uses the UTF-8 build copy.
+backend/requirements.txt

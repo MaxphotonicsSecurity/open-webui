@@ -92,10 +92,6 @@
 	// chat export
 	let stylizedPdfExport = true;
 
-	// Admin - Show Update Available Toast
-	let showUpdateToast = true;
-	let showChangelog = true;
-
 	// File
 	let defaultUploadContext: 'full' | 'focused' = 'focused';
 
@@ -323,8 +319,6 @@
 		responseAutoCopy = currentSettings?.responseAutoCopy ?? false;
 
 		showUsername = currentSettings?.showUsername ?? false;
-		showUpdateToast = currentSettings?.showUpdateToast ?? true;
-		showChangelog = currentSettings?.showChangelog ?? true;
 
 		showEmojiInCall = currentSettings?.showEmojiInCall ?? false;
 		voiceInterruption = currentSettings?.voiceInterruption ?? false;
@@ -700,54 +694,6 @@
 			{$i18n.t('Copy rich formatted content instead of plain text.')}
 		</p>
 	</div>
-
-	{#if $user?.role === 'admin'}
-		<div>
-			<div class={settingRowClass}>
-				<div id="toast-notifications-label" class={settingLabelClass}>
-					{$i18n.t('Toast Notifications for New Updates')}
-				</div>
-
-				<div class={settingControlClass}>
-					<Switch
-						ariaLabelledbyId="toast-notifications-label"
-						tooltip={true}
-						bind:state={showUpdateToast}
-						inherited={isDefaultSetting('showUpdateToast')}
-						on:change={() => {
-							saveSettings({ showUpdateToast });
-						}}
-					/>
-				</div>
-			</div>
-			<p class={settingDescriptionClass}>
-				{$i18n.t('Show update toasts to admins when new versions are available.')}
-			</p>
-		</div>
-
-		<div>
-			<div class={settingRowClass}>
-				<div id="whats-new-label" class={settingLabelClass}>
-					{$i18n.t(`Show "What's New" Modal on Login`)}
-				</div>
-
-				<div class={settingControlClass}>
-					<Switch
-						ariaLabelledbyId="whats-new-label"
-						tooltip={true}
-						bind:state={showChangelog}
-						inherited={isDefaultSetting('showChangelog')}
-						on:change={() => {
-							saveSettings({ showChangelog });
-						}}
-					/>
-				</div>
-			</div>
-			<p class={settingDescriptionClass}>
-				{$i18n.t('Open the changelog modal after sign-in when enabled.')}
-			</p>
-		</div>
-	{/if}
 
 	<div class={sectionHeadingClass}>{$i18n.t('Chat')}</div>
 

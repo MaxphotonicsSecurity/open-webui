@@ -1,0 +1,44 @@
+services:
+  model-cache-init:
+    image: company/open-webui:${OPEN_WEBUI_IMAGE_TAG:-local}
+    pull_policy: never
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        set -eu
+        cp -a /app/backend/data/. /target/
+        mkdir -p /target/cache/embedding/local/all-MiniLM-L6-v2
+        cp -aL /app/backend/data/cache/embedding/models/models--sentence-transformers--all-MiniLM-L6-v2/snapshots/*/. /target/cache/embedding/local/all-MiniLM-L6-v2/
+    restart: "no"
+    volumes:
+      - open-webui:/target
+
+  open-webui:
+    build:
+      context: ../..
+      dockerfile: Dockerfile
+    image: company/open-webui:${OPEN_WEBUI_IMAGE_TAG:-local}
+    pull_policy: build
+    depends_on:
+      model-cache-init:
+        condition: service_completed_successfully
+    env_file:
+      - path: ${OPEN_WEBUI_ENV_FILE:-.env}
+        required: true
+    ports:
+      - ${OPEN_WEBUI_PORT:-3000}:8080
+    extra_hosts:
+      - host.docker.internal:host-gateway
+    restart: unless-stopped
+    volumes:
+      - open-webui:/app/backend/data
+
+networks:
+  default:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: ${OPEN_WEBUI_SUBNET:-192.168.30.0/24}
+
+volumes:
+  open-webui: {}

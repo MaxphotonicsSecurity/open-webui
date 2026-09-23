@@ -20,6 +20,7 @@ from open_webui.env import (
     REDIS_RECONNECT_DELAY,
     REDIS_SENTINEL_HOSTS,
     REDIS_SENTINEL_MAX_RETRY_COUNT,
+    REDIS_SENTINEL_PASSWORD,
     REDIS_SENTINEL_PORT,
     REDIS_SOCKET_CONNECT_TIMEOUT,
     REDIS_SOCKET_KEEPALIVE,
@@ -276,8 +277,13 @@ def _build_sentinel(
 ) -> SentinelRedisProxy:
     """Create a SentinelRedisProxy from a redis URL and sentinel list."""
     cfg = parse_redis_url(url)
+    sentinel_kwargs = None
+    if REDIS_SENTINEL_PASSWORD:
+        sentinel_kwargs = {k: v for k, v in _socket_options().items() if k.startswith('socket_')}
+        sentinel_kwargs['password'] = REDIS_SENTINEL_PASSWORD
     sentinel = redis_module.sentinel.Sentinel(
         sentinels,
+        sentinel_kwargs=sentinel_kwargs,
         port=cfg['port'],
         db=cfg['db'],
         username=cfg['username'],

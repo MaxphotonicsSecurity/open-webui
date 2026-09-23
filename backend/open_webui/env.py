@@ -383,6 +383,8 @@ except ValueError:
 
 REDIS_SENTINEL_HOSTS = os.getenv('REDIS_SENTINEL_HOSTS', '')
 REDIS_SENTINEL_PORT = os.getenv('REDIS_SENTINEL_PORT', '26379')
+# Sentinel authentication is separate from the Redis data-node credentials in REDIS_URL.
+REDIS_SENTINEL_PASSWORD = os.getenv('REDIS_SENTINEL_PASSWORD', os.getenv('SENTINEL_PASSWORD', ''))
 
 # Maximum number of retries for Redis operations when using Sentinel fail-over
 REDIS_SENTINEL_MAX_RETRY_COUNT = os.getenv('REDIS_SENTINEL_MAX_RETRY_COUNT', '2')
@@ -487,6 +489,16 @@ except ValueError:
 
 WEBSOCKET_SENTINEL_HOSTS = os.getenv('WEBSOCKET_SENTINEL_HOSTS', '')
 WEBSOCKET_SENTINEL_PORT = os.getenv('WEBSOCKET_SENTINEL_PORT', '26379')
+if WEBSOCKET_SENTINEL_HOSTS and REDIS_SENTINEL_PASSWORD:
+    # Socket.IO constructs its own Sentinel client. Preserve explicit overrides
+    # and the socket defaults that redis-py otherwise inherits automatically.
+    _ws_sentinel_options = {k: v for k, v in WEBSOCKET_REDIS_OPTIONS.items() if k.startswith('socket_')}
+    if REDIS_SOCKET_TIMEOUT:
+        _ws_sentinel_options['socket_timeout'] = REDIS_SOCKET_TIMEOUT
+    _ws_sentinel_options['password'] = REDIS_SENTINEL_PASSWORD
+    _ws_sentinel_options.update(WEBSOCKET_REDIS_OPTIONS.get('sentinel_kwargs') or {})
+    WEBSOCKET_REDIS_OPTIONS['sentinel_kwargs'] = _ws_sentinel_options
+
 WEBSOCKET_SERVER_LOGGING = os.getenv('WEBSOCKET_SERVER_LOGGING', 'False').lower() == 'true'
 WEBSOCKET_SERVER_ENGINEIO_LOGGING = (
     os.getenv(
