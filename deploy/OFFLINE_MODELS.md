@@ -32,7 +32,7 @@ uv run --no-project --script deploy/model_cache.py download
 
 ## 2. 上传并校验
 
-先同步本次代码改动到服务器，包括根目录 `Dockerfile`、`.dockerignore`、`deploy/model_cache.py` 和 `deploy/offline-models/.gitkeep`。服务器已有的有效依赖文件、`.env` 和数据卷应保留。
+先同步本次代码改动到服务器，包括根目录 `Dockerfile`、`.dockerignore`、`backend/requirements.docker.in`、`deploy/model_cache.py` 和 `deploy/offline-models/.gitkeep`。镜像现在从 `.in` 文件读取 UTF-8 依赖清单；`.env` 和数据卷应保留。
 
 将两个文件上传到服务器项目的 `deploy/` 目录。例如将 `/实际项目路径` 替换为服务器路径：
 

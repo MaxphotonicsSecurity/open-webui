@@ -16,8 +16,9 @@ uploads
 **/*.db
 _test
 backend/data/*
-# Local copy is being rewritten as non-text by the host; Docker uses the UTF-8 build copy.
+# Legacy .txt copies contain binary data; Docker uses requirements.docker.in.
 backend/requirements.txt
+backend/requirements.docker.txt
 # Deployment credentials are delivered with the repository, not baked into images.
 deploy/local/.env
 deploy/test/.env

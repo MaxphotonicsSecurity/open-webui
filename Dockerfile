@@ -136,8 +136,9 @@ RUN apt-get update && \
     ffmpeg libsm6 libxext6 zstd \
     && rm -rf /var/lib/apt/lists/*
 
-# install python dependencies
-COPY --chown=$UID:$GID ./backend/requirements.docker.txt ./requirements.txt
+# Use the recovered UTF-8 build list; the legacy .txt copies contain binary data.
+COPY --chown=$UID:$GID ./backend/requirements.docker.in ./requirements.txt
+RUN python -c "from pathlib import Path; text = Path('requirements.txt').read_text(encoding='utf-8'); assert text.strip() and '\x00' not in text, 'Docker requirements must be nonempty UTF-8 text'; print('Validated UTF-8 Docker requirements')"
 
 # Set UV_LINK_MODE to copy to prevent 0-byte file corruption in QEMU arm64 cross-builds
 ENV UV_LINK_MODE=copy

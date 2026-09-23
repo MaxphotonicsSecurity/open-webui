@@ -68,6 +68,8 @@ deploy/
 
 企业部署 Compose 会使用当前仓库根目录的 `Dockerfile` 和源代码构建 `company/open-webui` 镜像，并设置 `pull_policy: build`，不会拉取 `ghcr.io/open-webui/open-webui` 成品镜像。Node、Python 基础镜像以及 apt、npm、pip 依赖在首次源码构建时仍需下载。
 
+镜像的 Python 依赖清单为 `backend/requirements.docker.in`，构建时复制为容器内的 `requirements.txt`，并在安装 Python 依赖前验证 UTF-8。旧的两个 `.txt` 清单曾被二进制内容替换，已排除在构建上下文之外；后续镜像依赖修改请更新 `.in` 文件。
+
 Dockerfile 使用 BuildKit 自带解析器，无需额外拉取 `docker/dockerfile:1`。遇到镜像仓库连接重置时，参见 [构建网络排障与镜像导入部署](prod/README.md#构建时-docker-hub-连接被重置)。
 
 如果依赖安装成功，但访问 Hugging Face 下载模型时报连接重置，可在联网的 Mac 下载模型包，再上传到 Linux 构建。操作步骤见 [离线模型包](OFFLINE_MODELS.md)。
