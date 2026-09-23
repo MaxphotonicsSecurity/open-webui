@@ -134,7 +134,6 @@ celerybeat.pid
 *.sage.py
 
 # Environments
-.env
 .venv
 env/
 venv/
@@ -309,3 +308,8 @@ cypress/videos
 cypress/screenshots
 .vscode/settings.json
 .cptr
+
+# Deployment environment files may be committed and uploaded with the repository.
+!/deploy/local/.env
+!/deploy/test/.env
+!/deploy/prod/.env

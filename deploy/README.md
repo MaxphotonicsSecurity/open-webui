@@ -12,7 +12,7 @@ bash deploy/test/deploy.sh   # 测试环境
 bash deploy/prod/deploy.sh   # 生产环境
 ```
 
-每次选择一个环境执行。脚本按自身位置定位仓库，因此也可以从其他目录运行，例如 `bash /opt/max/deploy/prod/deploy.sh`（替换为实际仓库路径），无需依赖当前目录。需要同步整个仓库和私有 `.env`，不能只复制入口脚本。
+每次选择一个环境执行。脚本按自身位置定位仓库，因此也可以从其他目录运行，例如 `bash /opt/max/deploy/prod/deploy.sh`（替换为实际仓库路径），无需依赖当前目录。各环境 `.env` 允许随代码提交上传；需要同步包含对应 `.env` 的完整仓库，不能只复制入口脚本。
 
 默认依次执行：检查 Docker/Compose 与配置 → 从源码构建应用镜像 → 用镜像中的 PostgreSQL 驱动创建缺失的业务库和 pgvector 扩展 → 预热模型缓存并启动应用 → 等待容器健康。无需宿主机 `psql`、Python，也无需手动挂载 SQL 文件或重复输入数据库密码。若数据库或扩展已经存在，会保留它们；应用启动仍会正常执行自身的数据库迁移。
 
@@ -40,14 +40,17 @@ deploy/
 ├── deploy.sh                 # 共享部署流程
 ├── bootstrap.py              # 应用镜像内执行的数据库初始化程序
 ├── local/
+│   ├── .env
 │   ├── .env.example
 │   ├── deploy.sh
 │   └── docker-compose.yaml
 ├── test/
+│   ├── .env
 │   ├── .env.example
 │   ├── deploy.sh
 │   └── docker-compose.yaml
 ├── prod/
+│   ├── .env
 │   ├── .env.example
 │   ├── deploy.sh
 │   └── docker-compose.yaml
@@ -72,9 +75,9 @@ deploy/
 在仓库根目录执行：
 
 ```bash
-cp deploy/local/.env.example deploy/local/.env
-cp deploy/test/.env.example deploy/test/.env
-# 仅当生产环境文件不存在时才复制模板，避免覆盖已有凭据。
+# 已随仓库同步的配置直接使用，仅在文件不存在时复制模板。
+test -f deploy/local/.env || cp deploy/local/.env.example deploy/local/.env
+test -f deploy/test/.env || cp deploy/test/.env.example deploy/test/.env
 test -f deploy/prod/.env || cp deploy/prod/.env.example deploy/prod/.env
 ```
 
@@ -88,7 +91,7 @@ test -f deploy/prod/.env || cp deploy/prod/.env.example deploy/prod/.env
 6. 确认向量数据库地址、认证信息和 collection 前缀；
 7. 为每个环境生成不同的 `WEBUI_SECRET_KEY`。
 
-三个目录中的私有 `.env` 均已被 `.gitignore` 排除。禁止提交真实密码、Access Key 或 API Key；生产环境建议由公司密钥管理系统或 CI/CD 平台动态生成 `.env`。
+按项目要求，`deploy/local/.env`、`deploy/test/.env`、`deploy/prod/.env` 已从 Git 忽略规则中放行，允许包含实际凭据并随代码提交上传。提交这三个文件后，服务器拉取仓库即可获得环境配置，无需单独传输。Docker 构建仍排除它们；Compose 在部署时读取配置，一键部署脚本会将文件权限设置为 `600`。不要用 `.env.example` 覆盖已有配置。
 
 连接 URL 中的用户名或密码如果包含 `@`、`:`、`/`、`#`、`?` 等保留字符，需要先进行 URL 编码。
 
