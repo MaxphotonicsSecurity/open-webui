@@ -44,6 +44,8 @@ loguru==0.7.3
 asgiref==3.11.1
 
 # AI libraries
+# NumPy 2.4 raises the x86 baseline to X86_V2, which older CPUs/VMs may lack.
+numpy<2.4
 tiktoken==0.13.0
 mcp==1.27.2
 
