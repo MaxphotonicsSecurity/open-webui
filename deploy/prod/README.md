@@ -97,6 +97,37 @@ docker compose --env-file deploy/prod/.env -f deploy/prod/docker-compose.yaml \
 
 `WEBUI_SECRET_KEY` 已生成；后续升级和多副本部署应保留同一个值。当前 `UVICORN_WORKERS=1`。数据库池分为业务同步、业务异步及向量连接池，扩容 worker 或副本前需合计连接上限。
 
+### 构建时 Docker Hub 连接被重置
+
+如果错误停在 `docker-image://docker.io/docker/dockerfile:1`，并提示 `registry-1.docker.io ... connection reset by peer`，失败发生在下载 Dockerfile 解析器阶段，尚未进入应用构建。仓库已移除外部 `syntax` 指令，改用 BuildKit 自带解析器；同步最新 `Dockerfile` 后重新执行 `bash deploy/prod/deploy.sh`。
+
+如果暂时无法同步代码，也可以在 Linux 服务器的仓库根目录执行以下命令，再重试部署：
+
+```bash
+sed -i '1{/^# syntax=docker\/dockerfile:1$/d;}' Dockerfile
+bash deploy/prod/deploy.sh
+```
+
+这个修改只消除 Dockerfile 解析器的额外拉取。首次构建仍需获取 `node:22-alpine3.20`、`python:3.11-slim-bookworm`，以及 npm、pip、系统软件包和模型文件。如果后续基础镜像也出现连接重置，应为 Docker daemon 配置公司可用的镜像代理或仓库；应用 `.env` 内的代理设置不会自动解决 daemon 拉取镜像的问题。不要仅为此覆盖已有的 `/etc/docker/daemon.json` 配置。
+
+也可以在具备构建网络、并且目标 CPU 架构与生产服务器一致的机器上，用本仓库构建完整应用镜像：
+
+```bash
+docker build -t company/open-webui:prod .
+docker save -o open-webui-prod.tar company/open-webui:prod
+```
+
+将镜像文件传到生产服务器，连同仓库和环境配置一起准备好后执行：
+
+```bash
+docker load -i open-webui-prod.tar
+bash deploy/prod/deploy.sh --no-build
+```
+
+镜像标签需要与生产 `.env` 的 `OPEN_WEBUI_IMAGE_TAG` 保持一致，以上使用当前默认值 `prod`。导入镜像后，部署仍需访问 PostgreSQL、Redis 和 OSS。
+
+参考：[BuildKit 自带 Dockerfile 解析器](https://docs.docker.com/build/buildkit/frontend/)、[Docker Hub 镜像代理](https://docs.docker.com/docker-hub/image-library/mirror/)、[Docker daemon 代理配置](https://docs.docker.com/engine/daemon/proxy/)。
+
 ## 4. 配置 HTTPS 入口
 
 将 `chatbot.maxphotonics.com` 的 DNS 指向反向代理或负载均衡入口，安装该域名证书，向应用服务器 `3000` 端口转发。必须支持 WebSocket Upgrade，并关闭响应缓冲以支持流式回复。

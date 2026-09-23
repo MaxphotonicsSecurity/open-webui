@@ -68,6 +68,8 @@ deploy/
 
 企业部署 Compose 会使用当前仓库根目录的 `Dockerfile` 和源代码构建 `company/open-webui` 镜像，并设置 `pull_policy: build`，不会拉取 `ghcr.io/open-webui/open-webui` 成品镜像。Node、Python 基础镜像以及 apt、npm、pip 依赖在首次源码构建时仍需下载。
 
+Dockerfile 使用 BuildKit 自带解析器，无需额外拉取 `docker/dockerfile:1`。遇到镜像仓库连接重置时，参见 [构建网络排障与镜像导入部署](prod/README.md#构建时-docker-hub-连接被重置)。
+
 企业 Compose 不再默认启动 Ollama。后续可以在管理界面接入公司内部模型服务；如需本地 Ollama，请单独部署并配置 `OLLAMA_BASE_URL`。
 
 ## 1. 初始化环境文件
