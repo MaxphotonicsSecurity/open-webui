@@ -2,6 +2,24 @@
 
 在仓库根目录执行本文命令。生产配置位于 `deploy/prod/.env`，真实密码已填写，文件权限为 `600`，已被 Git 和 Docker 构建上下文排除。`.env.example` 保留相同配置结构，密码使用占位符；将代码交付到服务器时，需要单独安全传输 `.env`，不要用模板覆盖已填写的文件。
 
+## 一键入口
+
+同步完整仓库及生产 `.env` 后，在仓库根目录执行：
+
+```bash
+bash deploy/prod/deploy.sh
+```
+
+也可以从任意目录调用脚本的绝对路径，例如 `bash /opt/max/deploy/prod/deploy.sh`（将 `/opt/max` 替换为实际仓库目录）。脚本自动定位环境文件，依次校验配置、构建镜像、初始化数据库和 pgvector、启动应用并等待健康检查。数据库初始化使用应用镜像内的驱动，因此无需宿主机新版 `psql`，也无需挂载 `init-db.sql`，可避免之前的 SCRAM 客户端版本和相对路径错误。
+
+```bash
+bash deploy/prod/deploy.sh --check         # 只检查配置，不部署
+bash deploy/prod/deploy.sh --no-build      # 已有当前源码构建的生产镜像时复用
+bash deploy/prod/deploy.sh --skip-db-init  # 数据库及扩展已经由 DBA 初始化时使用
+```
+
+默认初始化会创建缺失的 `openwebui` 库和 `vector` 扩展，已有库及扩展会保留。`--skip-db-init` 仍会检查数据库连接及扩展，但不会执行初始化 DDL；应用启动后的正常迁移照常进行。凭据从 `.env` 自动读取。其余选项见 [分环境部署入口说明](../README.md)。以下手动步骤用于核对或排障，使用脚本时无需重复执行建库及构建启动命令。
+
 ## 1. 本次配置
 
 | 项目 | 配置 |

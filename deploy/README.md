@@ -2,18 +2,54 @@
 
 `deploy` 按环境拆分部署文件。local、test、prod 各自拥有独立的环境配置和 Docker Compose 文件，修改某个环境时不会影响其他环境。
 
+## 一键部署（推荐）
+
+各环境的 deploy 目录提供部署入口；以下命令在仓库根目录执行，先确认对应 `deploy/<环境>/.env` 已填写：
+
+```bash
+bash deploy/local/deploy.sh  # 本地环境
+bash deploy/test/deploy.sh   # 测试环境
+bash deploy/prod/deploy.sh   # 生产环境
+```
+
+每次选择一个环境执行。脚本按自身位置定位仓库，因此也可以从其他目录运行，例如 `bash /opt/max/deploy/prod/deploy.sh`（替换为实际仓库路径），无需依赖当前目录。需要同步整个仓库和私有 `.env`，不能只复制入口脚本。
+
+默认依次执行：检查 Docker/Compose 与配置 → 从源码构建应用镜像 → 用镜像中的 PostgreSQL 驱动创建缺失的业务库和 pgvector 扩展 → 预热模型缓存并启动应用 → 等待容器健康。无需宿主机 `psql`、Python，也无需手动挂载 SQL 文件或重复输入数据库密码。若数据库或扩展已经存在，会保留它们；应用启动仍会正常执行自身的数据库迁移。
+
+统一入口和可选参数：
+
+```bash
+bash deploy/deploy.sh prod --check                    # 仅检查本地配置，不访问数据库或启动容器
+bash deploy/deploy.sh test --no-build                 # 使用本环境已有的应用镜像
+bash deploy/deploy.sh prod --skip-db-init             # 库和扩展已由 DBA 初始化，仅检查连接与扩展
+bash deploy/deploy.sh prod --no-build --skip-db-init --wait-timeout 600
+```
+
+三个环境入口也支持上述参数，例如 `bash deploy/prod/deploy.sh --check`。脚本要求 `.env` 已存在，发现 `CHANGE_ME` 或示例公司域名时会报告变量名并停止，不会覆盖现有凭据或自动猜测缺失值。`--check` 只检查配置文件和 Compose 解析结果，不能代替远端服务连通性及业务验收。
+
+初始化使用 `.env` 内的数据库账号，需要能连接 `postgres` 管理库，并在目标库缺失时拥有 `CREATEDB` 权限；新启用 `vector` 时需要相应扩展权限且服务端已安装 pgvector。已由 DBA 初始化的环境可使用 `--skip-db-init`。业务库和向量库地址均从配置读取，当前脚本支持 PostgreSQL + pgvector、`public` schema。
+
+项目名固定为 `open-webui-local`、`open-webui-test`、`open-webui-prod`，与当前模板一致；不会因为调用者 shell 中另一个 `COMPOSE_PROJECT_NAME` 或 `OPEN_WEBUI_ENV_FILE` 而切到其他环境。多环境同机运行仍需配置不同的端口和网段。
+
+构建、初始化或健康检查失败会立即返回非零退出码；脚本不执行 `down` 或删除数据卷。DNS、HTTPS 证书、反向代理及公司模型服务接入仍按环境说明配置。以下章节保留手动初始化与运维命令；使用一键脚本时无需重复手动建库。
+
 ## 目录结构
 
 ```text
 deploy/
+├── deploy.sh                 # 共享部署流程
+├── bootstrap.py              # 应用镜像内执行的数据库初始化程序
 ├── local/
 │   ├── .env.example
+│   ├── deploy.sh
 │   └── docker-compose.yaml
 ├── test/
 │   ├── .env.example
+│   ├── deploy.sh
 │   └── docker-compose.yaml
 ├── prod/
 │   ├── .env.example
+│   ├── deploy.sh
 │   └── docker-compose.yaml
 └── README.md
 ```
@@ -90,35 +126,21 @@ Sentinel 当前未启用，因为 `172.22.11.122:26379` 从开发环境连接时
 ### local
 
 ```bash
-docker compose \
-  --env-file deploy/local/.env \
-  -f deploy/local/docker-compose.yaml \
-  up -d --build
+bash deploy/local/deploy.sh
 ```
 
 ### test
 
 ```bash
-docker compose \
-  --env-file deploy/test/.env \
-  -f deploy/test/docker-compose.yaml \
-  up -d --build
+bash deploy/test/deploy.sh
 ```
 
 ### prod
 
-先按 [生产部署说明](prod/README.md) 初始化 `openwebui` 数据库和 `vector` 扩展，再构建启动：
+按 [生产部署说明](prod/README.md) 准备配置，脚本会自动初始化 `openwebui` 数据库及 `vector` 扩展：
 
 ```bash
-docker compose \
-  --env-file deploy/prod/.env \
-  -f deploy/prod/docker-compose.yaml \
-  build open-webui
-
-docker compose \
-  --env-file deploy/prod/.env \
-  -f deploy/prod/docker-compose.yaml \
-  up -d --no-build --pull never --wait --wait-timeout 300
+bash deploy/prod/deploy.sh
 ```
 
 每个 `.env` 都设置了独立的 `COMPOSE_PROJECT_NAME`，Docker 网络和数据卷会按环境隔离。Compose 默认将项目网络固定为 `192.168.30.0/24`，可通过 `.env` 中的 `OPEN_WEBUI_SUBNET` 覆盖，避免 Docker 自动分配的网段与办公网冲突。如果多个环境部署在同一台主机上，必须为各环境设置互不重叠且不与办公网冲突的 `OPEN_WEBUI_SUBNET`，并给 `OPEN_WEBUI_PORT` 设置不同端口。
