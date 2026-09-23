@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import datetime
+import hashlib
 import logging
 import re
 import time
@@ -565,7 +566,7 @@ async def ldap_auth(
 
         entry = connection_app.entries[0]
         entry_username = entry[f'{LDAP_ATTRIBUTE_FOR_USERNAME}'].value
-        email = entry[f'{LDAP_ATTRIBUTE_FOR_MAIL}'].value  # retrieve the Attribute value
+        email = entry[LDAP_ATTRIBUTE_FOR_MAIL].value if LDAP_ATTRIBUTE_FOR_MAIL in entry else None
 
         username_list = []  # list of usernames from LDAP attribute
         if isinstance(entry_username, list):
@@ -573,15 +574,9 @@ async def ldap_auth(
         else:
             username_list = [str(entry_username).lower()]
 
-        # TODO: support multiple emails if LDAP returns a list
-        if not email:
-            raise HTTPException(400, 'User does not have a valid email address.')
-        elif isinstance(email, str):
-            email = email.lower()
-        elif isinstance(email, list):
-            email = email[0].lower()
-        else:
-            email = str(email).lower()
+        # LDAP may omit mail entirely or return an empty/multi-valued attribute.
+        email_values = email if isinstance(email, list) else [email]
+        email = next((str(value).strip().lower() for value in email_values if value and str(value).strip()), None)
 
         cn = str(entry['cn'])  # common name
         user_dn = entry.entry_dn  # user distinguished name
@@ -643,7 +638,23 @@ async def ldap_auth(
             if not await asyncio.to_thread(connection_user.bind):
                 raise HTTPException(400, 'Authentication failed.')
 
-            user = await Users.get_user_by_email(email, db=db)
+            # Keep a directory identity independent of mail, which may be absent
+            # or populated later. Reuse the existing external-identity storage.
+            ldap_sub = hashlib.sha256(user_dn.lower().encode('utf-8')).hexdigest()
+            user = await Users.get_user_by_oauth_sub('ldap', ldap_sub, db=db)
+            if not user:
+                email = email or f'{ldap_sub}@ldap.invalid'
+                user = await Users.get_user_by_email(email, db=db)
+                if user:
+                    linked_sub = (user.oauth or {}).get('ldap', {}).get('sub')
+                    # A generated address must never merge with an unrelated
+                    # local account, nor may two LDAP identities share an account.
+                    if email.endswith('@ldap.invalid') or (linked_sub and linked_sub != ldap_sub):
+                        raise HTTPException(400, detail=ERROR_MESSAGES.INVALID_CRED)
+                    user = await Users.update_user_oauth_by_id(user.id, 'ldap', ldap_sub, db=db)
+                    if not user:
+                        raise HTTPException(500, detail=ERROR_MESSAGES.CREATE_USER_ERROR)
+
             if not user:
                 try:
                     # Insert with default role first to avoid TOCTOU race on
@@ -653,6 +664,7 @@ async def ldap_auth(
                         password=str(uuid.uuid4()),
                         name=cn,
                         role=await Config.get('ui.default_user_role'),
+                        oauth={'ldap': {'sub': ldap_sub}},
                         db=db,
                     )
 
@@ -686,7 +698,7 @@ async def ldap_auth(
                     log.error(f'LDAP user creation error: {str(err)}')
                     raise HTTPException(500, detail='Internal error occurred during LDAP user creation.')
 
-            user = await Auths.authenticate_user_by_email(email, db=db)
+            user = await Auths.authenticate_user_by_email(user.email, db=db)
 
             if user:
                 if ENABLE_LDAP_GROUP_MANAGEMENT and user_groups:

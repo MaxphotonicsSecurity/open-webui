@@ -1,7 +1,8 @@
 """LDAP login regression tests using an in-memory directory and SQLite database.
 
 Run with backend dependencies installed, a temporary DATA_DIR, and migrations disabled:
-    WEBUI_SECRET_KEY=ldap-test-only ENABLE_DB_MIGRATIONS=false PYTHONPATH=backend \
+    WEBUI_SECRET_KEY=ldap-regression-test-secret-at-least-32-bytes \
+        ENABLE_DB_MIGRATIONS=false VECTOR_DB=none PYTHONPATH=backend \
         python -m unittest discover -s backend/tests -p 'test_ldap_auth.py'
 """
 

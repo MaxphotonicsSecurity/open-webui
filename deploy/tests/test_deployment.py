@@ -10,6 +10,7 @@ import tempfile
 import unittest
 from unittest.mock import MagicMock, patch
 
+import psycopg2
 from psycopg2 import sql
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -230,6 +231,75 @@ class DatabaseBootstrapTests(unittest.TestCase):
             with patch.object(bootstrap.psycopg2, 'connect') as connect, self.assertRaises(ValueError):
                 bootstrap.main(['prod'])
             connect.assert_not_called()
+
+    def test_vector_connection_failure_reports_stage_without_credentials(self):
+        error = psycopg2.OperationalError(
+            'connection to postgresql://app:DO-NOT-PRINT@private-host/db failed: Connection timed out'
+        )
+        with patch.object(bootstrap.psycopg2, 'connect', side_effect=error):
+            with self.assertRaises(bootstrap.DatabaseBootstrapError) as raised:
+                bootstrap.ensure_vector(self.params, check_only=True)
+        message = str(raised.exception)
+        self.assertIn('pgvector 扩展连接与检查', message)
+        self.assertIn('超时', message)
+        self.assertIn('SQLSTATE=不可用', message)
+        for secret in ('DO-NOT-PRINT', 'private-host', '/test@secret'):
+            self.assertNotIn(secret, message)
+
+    def test_extension_query_failure_reports_stage_and_closes_connection(self):
+        connection, cursor = self.connection()
+        cursor.execute.side_effect = psycopg2.OperationalError('server closed the connection unexpectedly')
+        with patch.object(bootstrap.psycopg2, 'connect', return_value=connection):
+            with self.assertRaises(bootstrap.DatabaseBootstrapError) as raised:
+                bootstrap.ensure_vector(self.params)
+        self.assertIn('pgvector', str(raised.exception))
+        self.assertIn('断开连接', str(raised.exception))
+        connection.close.assert_called_once()
+
+    def test_admin_and_target_connection_failures_are_distinguished(self):
+        error = psycopg2.OperationalError('connection refused')
+        for check_only, expected in ((False, '管理库 postgres'), (True, '目标库连接验证')):
+            with self.subTest(check_only=check_only):
+                with patch.object(bootstrap.psycopg2, 'connect', side_effect=error):
+                    with self.assertRaises(bootstrap.DatabaseBootstrapError) as raised:
+                        bootstrap.ensure_database(self.params, check_only=check_only)
+                self.assertIn(expected, str(raised.exception))
+                self.assertIn('连接被拒绝', str(raised.exception))
+
+    def test_database_errors_are_classified_without_printing_driver_text(self):
+        examples = (
+            ('password authentication failed', '密码认证失败'),
+            ('no pg_hba.conf entry', '认证规则拒绝'),
+            ('remaining connection slots are reserved', '连接数已达上限'),
+            ('could not translate host name', '主机名解析失败'),
+            ('certificate verify failed', '证书校验失败'),
+            ('unknown failure', '未提供可识别'),
+        )
+        for detail, expected in examples:
+            with self.subTest(detail=detail):
+                error = psycopg2.OperationalError(f'{detail}; password=DO-NOT-PRINT')
+                message = bootstrap.database_error_reason(error)
+                self.assertIn(expected, message)
+                self.assertNotIn('DO-NOT-PRINT', message)
+
+    def test_check_only_still_validates_vector_after_business_connection(self):
+        environment = {
+            'DEPLOYMENT_ENV': 'prod',
+            'DATABASE_URL': 'postgresql://app:secret@db/business',
+            'PGVECTOR_DB_URL': 'postgresql://app:secret@db/business',
+            'WEBUI_SECRET_KEY': 'test-only',
+            'VECTOR_DB': 'pgvector',
+        }
+        target, cursor = self.connection((1,))
+        error = psycopg2.OperationalError('connection reset by peer')
+        with patch.dict(os.environ, environment, clear=True):
+            with patch.object(bootstrap.psycopg2, 'connect', side_effect=[target, error]) as connect:
+                with self.assertRaises(bootstrap.DatabaseBootstrapError) as raised:
+                    bootstrap.main(['prod', '--check-only'])
+        self.assertEqual(connect.call_count, 2)
+        self.assertTrue(all(call.kwargs['dbname'] == 'business' for call in connect.call_args_list))
+        cursor.execute.assert_called_once_with('SELECT 1')
+        self.assertIn('pgvector', str(raised.exception))
 
 
 if __name__ == '__main__':

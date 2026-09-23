@@ -6,18 +6,121 @@ search users, or print credentials/raw server messages. Run via stdin with
 ``docker compose ... exec -T open-webui python - < deploy/diagnose_ldap.py``.
 """
 
+import argparse
 import json
 import os
 import re
 import ssl
 import sys
+from urllib.parse import parse_qs, urlencode, urlparse, urlunparse
 
 
 def enabled(value):
     return str(value).lower() == 'true'
 
 
-def load_config():
+def database_error(exc, stage):
+    """Classify locally; never print a driver message, SQL, or connection string."""
+    message = str(exc).lower()
+    sqlstate = getattr(exc, 'sqlstate', None) or getattr(exc, 'pgcode', None)
+    if not isinstance(sqlstate, str) or not re.fullmatch(r'[A-Z0-9]{5}', sqlstate):
+        sqlstate = None
+    rules = [
+        ('client_libpq_too_old', ('scram authentication requires libpq version',), ()),
+        ('database_access_rule', ('no pg_hba.conf entry', 'pg_hba.conf rejects'), ()),
+        ('database_password_missing', ('no password supplied',), ()),
+        ('database_authentication_failed', ('password authentication failed', 'authentication failed'), ('28P01', '28000')),
+        ('database_connection_limit', ('too many clients', 'remaining connection slots', 'max_client_conn'), ('53300',)),
+        ('database_dns_failed', ('could not translate host name', 'name or service not known', 'temporary failure in name resolution'), ()),
+        ('database_connection_refused', ('connection refused',), ()),
+        ('database_timeout', ('timeout expired', 'connection timed out', 'statement timeout'), ('57014',)),
+        ('database_tls_failed', ('ssl error', 'certificate verify failed', 'root certificate', 'does not support ssl', 'sslmode'), ()),
+        ('database_connection_closed', ('server closed the connection', 'connection reset by peer', 'ssl syscall error'), ()),
+        ('database_not_found', (), ('3D000',)),
+        ('config_table_not_found', (), ('42P01',)),
+        ('database_permission_denied', ('permission denied',), ('42501',)),
+    ]
+    category = 'database_error_unclassified'
+    for name, fragments, codes in rules:
+        if sqlstate in codes or any(fragment in message for fragment in fragments):
+            category = name
+            break
+    if isinstance(exc, ValueError):
+        category = 'database_configuration_invalid'
+    return {'stage': stage, 'error_type': type(exc).__name__, 'category': category, 'sqlstate': sqlstate}
+
+
+class ConfigReadError(Exception):
+    def __init__(self, exc, stage):
+        super().__init__('Configuration read failed')
+        self.details = database_error(exc, stage)
+
+
+def database_parameters(db_driver='psycopg'):
+    """Mirror the app's DATABASE_* override and SSL URL normalization."""
+    if db_driver == 'psycopg':
+        from psycopg.conninfo import conninfo_to_dict as parse_dsn
+    else:
+        from psycopg2.extensions import parse_dsn
+
+    url = os.getenv('DATABASE_URL', '')
+    source = 'DATABASE_URL'
+    credentials = os.getenv('DATABASE_USER', '')
+    if os.getenv('DATABASE_PASSWORD'):
+        credentials += ':' + os.environ['DATABASE_PASSWORD']
+    parts = [os.getenv(name) for name in ('DATABASE_TYPE', 'DATABASE_HOST', 'DATABASE_PORT', 'DATABASE_NAME')]
+    if all(parts) and credentials:
+        db_type, host, port, name = parts
+        url = f'{db_type}://{credentials}@{host}:{port}/{name}'
+        source = 'DATABASE_TYPE/USER/PASSWORD/HOST/PORT/NAME'
+    for scheme in ('postgresql+psycopg2://', 'postgresql+psycopg://'):
+        if url.startswith(scheme):
+            url = 'postgresql://' + url[len(scheme):]
+    if not url.startswith(('postgresql://', 'postgres://')) or '${' in url:
+        raise ValueError('A resolved production PostgreSQL URL is required')
+    parsed = urlparse(url)
+    query = parse_qs(parsed.query, keep_blank_values=True)
+    sslmode = query.pop('sslmode', [None])[0] or query.pop('ssl', [None])[0]
+    query.pop('ssl', None)
+    if sslmode:
+        query['sslmode'] = [sslmode]
+    params = parse_dsn(urlunparse(parsed._replace(query=urlencode(query, doseq=True))))
+    params['connect_timeout'] = '10'
+    return params, source
+
+
+def database_summary(params, source, db_driver='psycopg'):
+    if db_driver == 'psycopg':
+        from psycopg import pq
+        build_version, runtime_version = pq.__build_version__, pq.version()
+    else:
+        import psycopg2
+        from psycopg2.extensions import libpq_version
+        build_version, runtime_version = psycopg2.__libpq_version__, libpq_version()
+
+    def safe_value(value):
+        value = str(value)
+        # Defense in depth: do not echo a password even if misused as a host/name.
+        for secret in (params.get('password'), os.getenv('DATABASE_PASSWORD')):
+            if secret:
+                value = value.replace(secret, '[redacted]')
+        return value[:160]
+
+    return {
+        'stage': 'database_connect',
+        'driver': db_driver,
+        'configuration_source': source,
+        'host': safe_value(params.get('host', '(libpq default)')),
+        'port': safe_value(params.get('port', '5432')),
+        'database': safe_value(params.get('dbname', '(libpq default)')),
+        'sslmode': safe_value(params.get('sslmode', '(libpq default)')),
+        'password_configured': bool(params.get('password')),
+        'libpq_build_version': build_version,
+        'libpq_runtime_version': runtime_version,
+    }
+
+
+def load_config(db_driver='psycopg'):
     fields = {
         'enable': ('ENABLE_LDAP', 'false'),
         'server.host': ('LDAP_SERVER_HOST', 'localhost'),
@@ -31,18 +134,25 @@ def load_config():
     }
     config = {f'ldap.{key}': os.getenv(name, default) for key, (name, default) in fields.items()}
     if enabled(os.getenv('ENABLE_PERSISTENT_CONFIG', 'true')):
-        import psycopg2
-        from psycopg2 import sql
+        if db_driver == 'psycopg':
+            import psycopg as driver
+            from psycopg import sql
+        else:
+            import psycopg2 as driver
+            from psycopg2 import sql
 
-        url = os.getenv('DATABASE_URL', '')
-        for scheme in ('postgresql+psycopg2://', 'postgresql+psycopg://'):
-            if url.startswith(scheme):
-                url = 'postgresql://' + url[len(scheme):]
-        if not url.startswith(('postgresql://', 'postgres://')):
-            raise ValueError('This diagnostic requires the production PostgreSQL configuration')
-        connection = psycopg2.connect(url, connect_timeout=10)
+        stage = 'database_configuration'
+        connection = None
         try:
-            connection.set_session(readonly=True)
+            params, source = database_parameters(db_driver)
+            print(json.dumps(database_summary(params, source, db_driver), ensure_ascii=False), flush=True)
+            stage = 'database_connect'
+            connection = driver.connect(**params)
+            stage = 'config_read'
+            if db_driver == 'psycopg':
+                connection.read_only = True
+            else:
+                connection.set_session(readonly=True)
             with connection.cursor() as cursor:
                 cursor.execute('SET LOCAL statement_timeout = 10000')
                 cursor.execute(
@@ -52,8 +162,11 @@ def load_config():
                     (list(config),),
                 )
                 config.update(cursor.fetchall())
+        except Exception as exc:
+            raise ConfigReadError(exc, stage) from None
         finally:
-            connection.close()
+            if connection is not None:
+                connection.close()
     return config
 
 
@@ -129,12 +242,24 @@ def check_bind(config):
             pass
 
 
-def main():
+def main(argv=None):
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--config-only', action='store_true', help='Read effective configuration without any AD bind')
+    parser.add_argument('--db-driver', choices=('psycopg', 'psycopg2'), default='psycopg',
+                        help='Default: the application runtime driver; psycopg2 is available for comparison')
+    args = parser.parse_args(argv)
     try:
-        config = load_config()
-    except Exception as exc:
-        print(f'读取生效配置失败：{type(exc).__name__}（未输出连接串或凭据）。', file=sys.stderr)
+        config = load_config(args.db_driver)
+    except ConfigReadError as exc:
+        print(json.dumps(exc.details, ensure_ascii=False), file=sys.stderr)
+        print('读取生效配置失败；尚未连接 AD。未输出密码、连接串或原始异常。', file=sys.stderr)
         return 2
+    except Exception as exc:
+        print(json.dumps(database_error(exc, 'database_configuration'), ensure_ascii=False), file=sys.stderr)
+        return 2
+    if args.config_only:
+        print(json.dumps({'configuration_read_ok': True, 'ldap_enabled': enabled(config['ldap.enable']), 'ad_bind_attempted': False}))
+        return 0
     try:
         return check_bind(config)
     except Exception as exc:

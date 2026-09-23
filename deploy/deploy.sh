@@ -57,8 +57,8 @@ env_file="$ROOT_DIR/deploy/$environment/.env"
 compose_file="$ROOT_DIR/deploy/$environment/docker-compose.yaml"
 bootstrap_file="$ROOT_DIR/deploy/bootstrap.py"
 [[ -f "$compose_file" && -f "$bootstrap_file" ]] || fail '部署文件不完整，请同步整个代码仓库。'
-[[ -f "$env_file" ]] || fail "缺少 $env_file；请安全传入已填写的环境文件，或复制同目录 .env.example 后填写凭据。"
-[[ -r "$env_file" ]] || fail "无法读取 $env_file。"
+[[ -f "$env_file" ]] || fail "缺少 ${env_file}；请安全传入已填写的环境文件，或复制同目录 .env.example 后填写凭据。"
+[[ -r "$env_file" ]] || fail "无法读取 ${env_file}。"
 
 # Only report key names. Never source .env or print values containing credentials.
 unfinished_keys="$(awk '
@@ -99,7 +99,7 @@ fi
 stage='初始化或检查 PostgreSQL / pgvector'
 bootstrap_args=("$environment")
 if [[ "$initialize_db" == false ]]; then bootstrap_args+=(--check-only); fi
-step "$stage（使用应用镜像内的驱动，无需宿主机 psql）"
+step "${stage}（使用应用镜像内的驱动，无需宿主机 psql）"
 # Pass code through stdin so invocation never depends on the caller's cwd or
 # bind-mounting a local SQL file. Compose supplies the fully expanded env_file.
 "${compose[@]}" run --rm --no-deps --pull never -T --entrypoint python \
@@ -117,5 +117,5 @@ fi
 "${compose[@]}" ps -a
 printf '\n[完成] %s 环境应用已通过容器健康检查。\n' "$environment"
 if [[ "$environment" == prod ]]; then
-  printf '生产入口：https://chatbot.maxphotonics.com（DNS、HTTPS 反向代理需按 deploy/prod/README.md 配置）。\n'
+  printf '生产入口：请使用 deploy/prod/.env 中允许的站点地址；HTTP/HTTPS 切换见 deploy/prod/README.md。\n'
 fi

@@ -316,3 +316,5 @@ cypress/screenshots
 !/deploy/local/.env
 !/deploy/test/.env
 !/deploy/prod/.env
+/deploy/offline-build-support.tar.gz
+/deploy/offline-build-support.tar.gz.sha256

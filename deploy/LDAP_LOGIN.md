@@ -15,10 +15,20 @@ LDAP 登录不再要求 AD/LDAP 用户填写 `mail` 属性。继续使用原来�
 本次修改在后端源码中，需要将修改同步到服务器并重新构建应用镜像；只重启旧镜像不会生效。在生产服务器仓库根目录执行：
 
 ```bash
-bash deploy/prod/deploy.sh
+bash deploy/prod/deploy.sh --skip-db-init --wait-timeout 600
 ```
 
 部署后用一个无 `mail` 属性的测试域账号登录，确认再次登录仍进入同一个账号。若日志是 `User not found in the LDAP server`，则需另行检查用户名、搜索基准和过滤条件，该错误与邮箱是否存在无关。
+
+上述命令适用于数据库及 pgvector 已初始化的生产实例，仍会检查连接与扩展，应用启动时仍会执行正常迁移。首次安装需要初始化数据库时，去掉 `--skip-db-init`。
+
+如果镜像已经构建成功，只是后续数据库检查失败，修复连接问题后可以复用该镜像继续部署：
+
+```bash
+bash deploy/prod/deploy.sh --no-build --skip-db-init --wait-timeout 600
+```
+
+`--skip-db-init` 不会绕过向量库检查，也不能修复网络或认证错误。同步最新 `deploy/bootstrap.py` 后，日志会区分管理库、业务库及 pgvector 检查，并输出脱敏错误分类。该脚本通过标准输入传入容器，更新诊断逻辑无需重建镜像。
 
 ## 回归测试
 
@@ -26,7 +36,8 @@ bash deploy/prod/deploy.sh
 
 ```bash
 LDAP_TEST_DATA_DIR=$(mktemp -d)
-WEBUI_SECRET_KEY=ldap-test-only ENABLE_DB_MIGRATIONS=false OFFLINE_MODE=true \
+WEBUI_SECRET_KEY=ldap-regression-test-secret-at-least-32-bytes \
+  ENABLE_DB_MIGRATIONS=false OFFLINE_MODE=true VECTOR_DB=none \
   DATA_DIR="$LDAP_TEST_DATA_DIR" DATABASE_URL="sqlite:///$LDAP_TEST_DATA_DIR/webui.db" \
   PYTHONPATH=backend python -m unittest discover -s backend/tests -p 'test_ldap_auth.py' -v
 ```
