@@ -26,7 +26,8 @@ bash deploy/prod/deploy.sh
 
 ```bash
 LDAP_TEST_DATA_DIR=$(mktemp -d)
-WEBUI_SECRET_KEY=ldap-test-only ENABLE_DB_MIGRATIONS=false OFFLINE_MODE=true \
+WEBUI_SECRET_KEY=ldap-regression-test-secret-at-least-32-bytes \
+  ENABLE_DB_MIGRATIONS=false OFFLINE_MODE=true VECTOR_DB=none \
   DATA_DIR="$LDAP_TEST_DATA_DIR" DATABASE_URL="sqlite:///$LDAP_TEST_DATA_DIR/webui.db" \
   PYTHONPATH=backend python -m unittest discover -s backend/tests -p 'test_ldap_auth.py' -v
 ```
