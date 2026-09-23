@@ -92,8 +92,16 @@ if [[ "$build_image" == true ]]; then
   step '从当前仓库源码构建应用镜像'
   "${compose[@]}" build open-webui
 else
-  image_name="$("${compose[@]}" config --images open-webui)"
-  docker image inspect "$image_name" >/dev/null 2>&1 || fail '找不到当前环境的应用镜像，请去掉 --no-build 先构建。'
+  # Compose includes dependency services, which may repeat the same image.
+  # Inspect each distinct name separately instead of passing multiline output.
+  image_names="$("${compose[@]}" config --images open-webui)"
+  [[ -n "$image_names" ]] || fail '无法从 Compose 配置解析应用镜像名称。'
+  while IFS= read -r image_name; do
+    [[ -n "$image_name" ]] || continue
+    docker image inspect "$image_name" >/dev/null 2>&1 || \
+      fail "当前 Docker 环境缺少镜像 ${image_name}；请核对 OPEN_WEBUI_IMAGE_TAG 和 Docker context，确实缺失时重新构建或导入镜像。"
+    step "使用已有镜像：${image_name}"
+  done < <(printf '%s\n' "$image_names" | sort -u)
 fi
 
 stage='初始化或检查 PostgreSQL / pgvector'
