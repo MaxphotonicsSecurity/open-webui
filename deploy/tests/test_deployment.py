@@ -50,7 +50,11 @@ with open(os.environ['FAKE_DOCKER_LOG'], 'a') as file:
 if os.getenv('FAKE_FAIL_STAGE') in args:
     sys.exit(42)
 if '--images' in args:
-    print('company/open-webui:test-fixture')
+    print(os.getenv('FAKE_COMPOSE_IMAGES', 'company/open-webui:test-fixture'))
+if args[:2] == ['image', 'inspect']:
+    available = os.getenv('FAKE_AVAILABLE_IMAGES', 'company/open-webui:test-fixture').splitlines()
+    if len(args) != 3 or args[2] not in available:
+        sys.exit(1)
 ''')
         docker.chmod(0o755)
         self.env = dict(os.environ, PATH=f'{binary_dir}:{os.environ["PATH"]}', FAKE_DOCKER_LOG=str(self.log))
@@ -106,6 +110,41 @@ if '--images' in args:
         self.assertTrue(any('inspect' in args for args in commands))
         self.assertIn('--check-only', next(args for args in commands if 'run' in args))
         self.assertIn('600', next(args for args in commands if 'up' in args))
+
+    def test_no_build_deduplicates_image_names_from_dependencies(self):
+        image = 'company/open-webui:test-fixture'
+        self.env['FAKE_COMPOSE_IMAGES'] = f'{image}\n{image}'
+        result = self.run_deploy('prod', '--no-build', '--skip-db-init')
+        self.assertEqual(result.returncode, 0, result.stderr)
+        commands = [item['args'] for item in self.records()]
+        inspections = [args for args in commands if args[:2] == ['image', 'inspect']]
+        self.assertEqual(inspections, [['image', 'inspect', image]])
+        self.assertFalse(any('build' in args for args in commands))
+        self.assertTrue(any('up' in args for args in commands))
+
+    def test_no_build_checks_distinct_dependency_images_separately(self):
+        images = ['company/open-webui:test-fixture', 'company/model-cache:test-fixture']
+        self.env['FAKE_COMPOSE_IMAGES'] = '\n'.join(images)
+        self.env['FAKE_AVAILABLE_IMAGES'] = '\n'.join(images)
+        result = self.run_deploy('prod', '--no-build')
+        self.assertEqual(result.returncode, 0, result.stderr)
+        inspections = [item['args'][2] for item in self.records() if item['args'][:2] == ['image', 'inspect']]
+        self.assertCountEqual(inspections, images)
+
+    def test_missing_image_names_the_image_and_stops_before_database_check(self):
+        self.env['FAKE_AVAILABLE_IMAGES'] = ''
+        result = self.run_deploy('prod', '--no-build')
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn('company/open-webui:test-fixture', result.stderr)
+        for item in self.records():
+            self.assertFalse(set(item['args']) & {'build', 'run', 'up'})
+
+    def test_empty_image_output_stops_before_database_check(self):
+        self.env['FAKE_COMPOSE_IMAGES'] = ''
+        result = self.run_deploy('prod', '--no-build')
+        self.assertNotEqual(result.returncode, 0)
+        for item in self.records():
+            self.assertFalse(set(item['args']) & {'inspect', 'build', 'run', 'up'})
 
     def test_failures_stop_later_steps(self):
         for stage, forbidden in [('build', 'run'), ('run', 'up'), ('up', None)]:
