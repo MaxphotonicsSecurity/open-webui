@@ -149,6 +149,8 @@ bash deploy/prod/deploy.sh --no-build
 
 参考：[DaoCloud 镜像前缀用法](https://github.com/DaoCloud/public-image-mirror#使用方法)、[BuildKit 自带 Dockerfile 解析器](https://docs.docker.com/build/buildkit/frontend/)、[Docker daemon 代理配置](https://docs.docker.com/engine/daemon/proxy/)。
 
+> 如果构建在 Hugging Face 模型下载阶段失败，可先按 [离线模型包操作步骤](../OFFLINE_MODELS.md) 在联网机器下载模型并上传，再执行生产部署。
+
 ## 4. 配置 HTTPS 入口
 
 将 `chatbot.maxphotonics.com` 的 DNS 指向反向代理或负载均衡入口，安装该域名证书，向应用服务器 `3000` 端口转发。必须支持 WebSocket Upgrade，并关闭响应缓冲以支持流式回复。

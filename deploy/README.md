@@ -70,6 +70,8 @@ deploy/
 
 Dockerfile 使用 BuildKit 自带解析器，无需额外拉取 `docker/dockerfile:1`。遇到镜像仓库连接重置时，参见 [构建网络排障与镜像导入部署](prod/README.md#构建时-docker-hub-连接被重置)。
 
+如果依赖安装成功，但访问 Hugging Face 下载模型时报连接重置，可在联网的 Mac 下载模型包，再上传到 Linux 构建。操作步骤见 [离线模型包](OFFLINE_MODELS.md)。
+
 三个环境、Dockerfile 及 Compose 默认均使用 DaoCloud 基础镜像：`m.daocloud.io/docker.io/library/node:22-alpine3.20` 和 `m.daocloud.io/docker.io/library/python:3.11-slim-bookworm`。如需其他镜像源，可在各自 `.env` 覆盖 `OPEN_WEBUI_NODE_IMAGE`、`OPEN_WEBUI_PYTHON_IMAGE` 后重新构建。无需修改 Docker daemon 配置或重启 Docker。
 
 企业 Compose 不再默认启动 Ollama。后续可以在管理界面接入公司内部模型服务；如需本地 Ollama，请单独部署并配置 `OLLAMA_BASE_URL`。

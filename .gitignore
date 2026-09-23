@@ -2,6 +2,9 @@ x.py
 yarn.lock
 .DS_Store
 node_modules
+/deploy/offline-models/*
+!/deploy/offline-models/.gitkeep
+/deploy/offline-models.tar.gz*
 /build
 /.svelte-kit
 /package
