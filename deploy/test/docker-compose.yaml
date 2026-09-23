@@ -17,6 +17,9 @@ services:
     build:
       context: ../..
       dockerfile: Dockerfile
+      args:
+        OPEN_WEBUI_NODE_IMAGE: ${OPEN_WEBUI_NODE_IMAGE:-m.daocloud.io/docker.io/library/node:22-alpine3.20}
+        OPEN_WEBUI_PYTHON_IMAGE: ${OPEN_WEBUI_PYTHON_IMAGE:-m.daocloud.io/docker.io/library/python:3.11-slim-bookworm}
     image: company/open-webui:${OPEN_WEBUI_IMAGE_TAG:-test}
     pull_policy: build
     depends_on:

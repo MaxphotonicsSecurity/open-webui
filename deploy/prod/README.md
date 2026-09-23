@@ -43,7 +43,7 @@ PostgreSQL 密码中的 `/` 已编码为 `%2F`。`PGVECTOR_DB_URL` 引用 `DATAB
 
 ## 2. 准备服务器与数据库
 
-安装 Docker Engine、Docker Compose v2.24+（或 v5）。数据库初始化推荐使用下方 Docker 客户端命令；若使用宿主机 `psql`，其实际加载的 `libpq` 必须为 10 或更高版本，以支持 SCRAM 认证。服务器需要能访问：
+安装 Docker Engine、Docker Compose v2.24+（或 v5）。手动初始化数据库时可以使用下方 Docker 客户端命令；一键脚本自动使用应用镜像内的驱动。若使用宿主机 `psql`，其实际加载的 `libpq` 必须为 10 或更高版本，以支持 SCRAM 认证。服务器需要能访问：
 
 - PostgreSQL `172.16.60.190:5000`；
 - 三个 Sentinel 的 `26379` 端口，以及 Sentinel 返回的 Redis 数据节点端口（本次为 `6379`）；所有可能晋升为 master 的节点均须可达；
@@ -60,12 +60,12 @@ docker compose --env-file deploy/prod/.env -f deploy/prod/docker-compose.yaml co
 
 `config --quiet` 只验证配置，不输出含密码的解析结果。若同机运行其他环境，先调整 `OPEN_WEBUI_PORT` 和 `OPEN_WEBUI_SUBNET`，避免端口或 Docker 网段冲突。当前网段为 `192.168.30.0/24`，生产网络也不得与此重叠。
 
-首次部署先初始化数据库。推荐在 Linux 生产服务器使用 PostgreSQL 16 客户端容器，避免系统自带客户端过旧（首次运行需要拉取 `postgres:16-alpine` 镜像）：
+首次手动部署先初始化数据库。在 Linux 生产服务器使用 PostgreSQL 16 客户端容器，避免系统自带客户端过旧（首次运行从 DaoCloud 拉取客户端镜像）：
 
 ```bash
 docker run --rm -it --network host \
   --mount "type=bind,source=$PWD/deploy/prod/init-db.sql,target=/init-db.sql,readonly" \
-  --entrypoint psql postgres:16-alpine \
+  --entrypoint psql m.daocloud.io/docker.io/library/postgres:16-alpine \
   -h 172.16.60.190 -p 5000 -U postgres -W -d postgres \
   -v ON_ERROR_STOP=1 -f /init-db.sql
 ```
@@ -108,7 +108,28 @@ sed -i '1{/^# syntax=docker\/dockerfile:1$/d;}' Dockerfile
 bash deploy/prod/deploy.sh
 ```
 
-这个修改只消除 Dockerfile 解析器的额外拉取。首次构建仍需获取 `node:22-alpine3.20`、`python:3.11-slim-bookworm`，以及 npm、pip、系统软件包和模型文件。如果后续基础镜像也出现连接重置，应为 Docker daemon 配置公司可用的镜像代理或仓库；应用 `.env` 内的代理设置不会自动解决 daemon 拉取镜像的问题。不要仅为此覆盖已有的 `/etc/docker/daemon.json` 配置。
+这个修改只消除 Dockerfile 解析器的额外拉取。若下一步在 `load metadata for docker.io/library/python` 或 `node` 失败，说明基础镜像拉取仍在直接访问 Docker Hub。
+
+当前已按部署要求将 Dockerfile 默认值、三个环境的 Compose、实际 `.env` 和模板统一配置为 DaoCloud 镜像源：
+
+```dotenv
+OPEN_WEBUI_NODE_IMAGE=m.daocloud.io/docker.io/library/node:22-alpine3.20
+OPEN_WEBUI_PYTHON_IMAGE=m.daocloud.io/docker.io/library/python:3.11-slim-bookworm
+```
+
+镜像地址采用 DaoCloud 官方推荐的增加前缀方式，完整路径保留 `docker.io/library/`，不包含 `https://`。直接使用这些完整镜像名即可，无需修改 `/etc/docker/daemon.json` 或重启 Docker。需要其他镜像源时，可在对应 `.env` 覆盖这两个变量，保持相同的运行时与操作系统版本。
+
+将最新 Dockerfile、Compose 和生产 `.env` 同步到服务器后，可以先验证镜像拉取，再运行部署：
+
+```bash
+docker pull m.daocloud.io/docker.io/library/node:22-alpine3.20
+docker pull m.daocloud.io/docker.io/library/python:3.11-slim-bookworm
+bash deploy/prod/deploy.sh
+```
+
+若日志依然显示直接访问 `docker.io/library/python` 或 `node`，应检查这三个配置文件是否已同步，以及 shell 环境变量是否覆盖了 `.env`。如果暂时无法同步配置，可在旧版 Dockerfile 中将两个 `FROM` 使用的镜像名分别替换为上述完整镜像名。
+
+基础镜像切换不会自动解决后续 npm、pip、apt/apk 或模型文件的下载限制。生产服务器缺少这些外网访问条件时，可以采用下面的完整镜像导入方式。
 
 也可以在具备构建网络、并且目标 CPU 架构与生产服务器一致的机器上，用本仓库构建完整应用镜像：
 
@@ -126,7 +147,7 @@ bash deploy/prod/deploy.sh --no-build
 
 镜像标签需要与生产 `.env` 的 `OPEN_WEBUI_IMAGE_TAG` 保持一致，以上使用当前默认值 `prod`。导入镜像后，部署仍需访问 PostgreSQL、Redis 和 OSS。
 
-参考：[BuildKit 自带 Dockerfile 解析器](https://docs.docker.com/build/buildkit/frontend/)、[Docker Hub 镜像代理](https://docs.docker.com/docker-hub/image-library/mirror/)、[Docker daemon 代理配置](https://docs.docker.com/engine/daemon/proxy/)。
+参考：[DaoCloud 镜像前缀用法](https://github.com/DaoCloud/public-image-mirror#使用方法)、[BuildKit 自带 Dockerfile 解析器](https://docs.docker.com/build/buildkit/frontend/)、[Docker daemon 代理配置](https://docs.docker.com/engine/daemon/proxy/)。
 
 ## 4. 配置 HTTPS 入口
 

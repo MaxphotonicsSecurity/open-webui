@@ -1,4 +1,8 @@
 # Use BuildKit's bundled Dockerfile frontend to avoid a separate Docker Hub pull.
+# Override these with equivalent images hosted in another accessible registry.
+ARG OPEN_WEBUI_NODE_IMAGE=m.daocloud.io/docker.io/library/node:22-alpine3.20
+ARG OPEN_WEBUI_PYTHON_IMAGE=m.daocloud.io/docker.io/library/python:3.11-slim-bookworm
+
 # Initialize device type args
 # use build args in the docker build command with --build-arg="BUILDARG=true"
 ARG USE_CUDA=false
@@ -24,7 +28,7 @@ ARG UID=0
 ARG GID=0
 
 ######## WebUI frontend ########
-FROM --platform=$BUILDPLATFORM node:22-alpine3.20 AS build
+FROM --platform=$BUILDPLATFORM ${OPEN_WEBUI_NODE_IMAGE} AS build
 ARG BUILD_HASH
 
 # The production Svelte/Vite build can exceed Node.js' default heap.
@@ -43,7 +47,7 @@ ENV APP_BUILD_HASH=${BUILD_HASH}
 RUN npm run build
 
 ######## WebUI backend ########
-FROM python:3.11-slim-bookworm AS base
+FROM ${OPEN_WEBUI_PYTHON_IMAGE} AS base
 
 # Use args
 ARG USE_CUDA

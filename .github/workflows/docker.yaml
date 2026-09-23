@@ -78,7 +78,7 @@ jobs:
       - name: Prepare CI Dockerfile
         run: |
           awk '
-            /^FROM --platform=\$BUILDPLATFORM node:/ {
+            /^FROM --platform=\$BUILDPLATFORM .* AS build$/ {
               print
               print "ENV NODE_OPTIONS=\"--max-old-space-size=12288\""
               next
